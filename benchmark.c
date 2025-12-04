@@ -13,14 +13,14 @@
     #include <sys/time.h>
 #endif
 
-// Funktionsprototypen aus matrix_kernels.c
+
 void matmul_classic(const double *A, const double *B, double *C, int n);
 void matmul_omp(const double *A, const double *B, double *C, int n, int num_threads);
 void matmul_vectorized(const double *A, const double *B, double *C, int n);
 void matmul_omp_vectorized(const double *A, const double *B, double *C, int n, int num_threads);
 
 #ifdef _WIN32
-// Hilfsfunktion: aktuelle Zeit (us) – Windows-Version
+
 static long long now_us(void) {
     LARGE_INTEGER freq, counter;
     QueryPerformanceFrequency(&freq);
@@ -36,7 +36,6 @@ static long long now_us(void) {
 }
 #endif
 
-// Hilfsfunktion: Peak-RSS in kB (plattformabhängig)
 static long get_peak_rss_kb(void) {
 #ifdef _WIN32
     PROCESS_MEMORY_COUNTERS pmc;
@@ -54,14 +53,14 @@ static long get_peak_rss_kb(void) {
 #endif
 }
 
-// Initialisiert Matrix mit deterministischen Werten
+
 static void init_matrix(double *M, int n, double seed) {
     for (int i = 0; i < n * n; ++i) {
         M[i] = (double)((i + 1) % 100) * seed;
     }
 }
 
-// Vergleicht zwei Matrizen, gibt max. absolute Differenz zurück
+
 static double max_abs_diff(const double *A, const double *B, int n) {
     double max_diff = 0.0;
     for (int i = 0; i < n * n; ++i) {
@@ -78,9 +77,9 @@ void run_benchmarks(void) {
     int sizes[] = {512, 1024, 2048, 4069};
     int num_sizes = sizeof(sizes) / sizeof(sizes[0]);
 
-    // Anzahl Wiederholungen pro Größe/Algorithmus
+
     int runs = 3;
-    int num_threads = 0; // 0 => OpenMP default, oder setze z.B. 8
+    int num_threads = 0; // 0 => OpenMP default, automatically choose optimized value
 
     printf("Algorithm,Size,Run,Time_us,PeakRSS_kB\n");
 
@@ -102,7 +101,6 @@ void run_benchmarks(void) {
         init_matrix(A, n, 0.01);
         init_matrix(B, n, 0.02);
 
-        // Referenz: klassische Variante ein Mal
         matmul_classic(A, B, C_ref, n);
 
         // 1) Classic
@@ -156,7 +154,7 @@ void run_benchmarks(void) {
             fflush(stdout);
         }
 
-        // 4) OMP + Vectorized (optional)
+        // 4) OMP + Vectorized
         for (int r = 0; r < runs; ++r) {
             memset(C, 0, bytes);
             long long t0 = now_us();

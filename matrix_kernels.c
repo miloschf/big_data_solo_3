@@ -40,7 +40,7 @@ static void aligned_free(void* ptr) {
 }
 
 // -----------------------------------------------------------
-//  Klassische Matrixmultiplikation: C = A * B
+//  classic multiplication
 // -----------------------------------------------------------
 void matmul_classic(const double *A, const double *B, double *C, int n) {
     for (int i = 0; i < n; ++i) {
@@ -55,7 +55,7 @@ void matmul_classic(const double *A, const double *B, double *C, int n) {
 }
 
 // -----------------------------------------------------------
-//  OpenMP-parallele Matrixmultiplikation (klassisch)
+//  OpenMP parallel
 // -----------------------------------------------------------
 void matmul_omp(const double *A, const double *B, double *C, int n, int num_threads) {
 #ifdef _OPENMP
@@ -80,8 +80,7 @@ void matmul_omp(const double *A, const double *B, double *C, int n, int num_thre
 }
 
 // -----------------------------------------------------------
-//  AVX2-Helper: Dot-Product zweier double-Vektoren
-//  a, b: Pointer auf n contiguous double-Werte
+//  AVX2-Helper
 // -----------------------------------------------------------
 static inline double dot_avx2(const double *a, const double *b, int n) {
     __m256d acc = _mm256_setzero_pd();
@@ -96,16 +95,15 @@ static inline double dot_avx2(const double *a, const double *b, int n) {
         acc = _mm256_add_pd(acc, prod);
     }
 
-    // horizontale Summe acc[0] + acc[1] + acc[2] + acc[3]
-    __m128d low  = _mm256_castpd256_pd128(acc);   // untere 2 doubles
-    __m128d high = _mm256_extractf128_pd(acc, 1); // obere 2 doubles
-    __m128d sum2 = _mm_add_pd(low, high);         // [a0+a2, a1+a3]
-    __m128d shuf = _mm_permute_pd(sum2, 0x1);     // swap
-    __m128d sum1 = _mm_add_sd(sum2, shuf);        // [gesamt, x]
+    __m128d low  = _mm256_castpd256_pd128(acc);
+    __m128d high = _mm256_extractf128_pd(acc, 1);
+    __m128d sum2 = _mm_add_pd(low, high);
+    __m128d shuf = _mm_permute_pd(sum2, 0x1);
+    __m128d sum1 = _mm_add_sd(sum2, shuf);
 
     double result = _mm_cvtsd_f64(sum1);
 
-    // Rest (falls n kein Vielfaches von 4 ist)
+
     for (; k < n; ++k) {
         result += a[k] * b[k];
     }
@@ -114,32 +112,23 @@ static inline double dot_avx2(const double *a, const double *b, int n) {
 }
 
 // -----------------------------------------------------------
-//  AVX2-Matrixmultiplikation mit transponiertem B
-//
-//  B_T[j, i] = B[i, j]
-//  C[i, j] = dot( A[i, :], B_T[j, :] )
-//
-//  => beide Operanden des Dot-Products sind in Row-Major
-//     und damit contiguous -> perfekt für SIMD
+//  AVX2-matrixmultiplication with transposed B
 // -----------------------------------------------------------
 static void matmul_avx2_transposed(const double *A, const double *B, double *C, int n) {
     size_t bytes = (size_t)n * (size_t)n * sizeof(double);
 
     double *B_T = (double *) aligned_malloc(32, bytes);
     if (!B_T) {
-        // Fallback, wenn Alloc fehlschlägt
         matmul_classic(A, B, C, n);
         return;
     }
 
-    // B transponieren: B_T[j*n + i] = B[i*n + j]
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             B_T[j * n + i] = B[i * n + j];
         }
     }
 
-    // C = A * B mit AVX2-Dot-Product
     for (int i = 0; i < n; ++i) {
         const double *rowA = A + i * n;
         for (int j = 0; j < n; ++j) {
@@ -153,7 +142,7 @@ static void matmul_avx2_transposed(const double *A, const double *B, double *C, 
 }
 
 // -----------------------------------------------------------
-//  Öffentliche vektorisierte Variante (seriell)
+//  public vectorized variant
 // -----------------------------------------------------------
 void matmul_vectorized(const double *A, const double *B, double *C, int n) {
 #if defined(__AVX2__)
@@ -167,9 +156,9 @@ void matmul_vectorized(const double *A, const double *B, double *C, int n) {
 // -----------------------------------------------------------
 //  OpenMP + AVX2 kombinierte Version
 //
-//  - B wird EINMAL transponiert
-//  - äußere Schleife über i wird parallelisiert
-//  - inneres Produkt läuft mit AVX2
+//  - B transposed
+//  - outer loop parallelized
+//  - inner loop with AVX2
 // -----------------------------------------------------------
 void matmul_omp_vectorized(const double *A, const double *B, double *C, int n, int num_threads) {
 #if defined(__AVX2__) && defined(_OPENMP)
@@ -177,12 +166,11 @@ void matmul_omp_vectorized(const double *A, const double *B, double *C, int n, i
 
     double *B_T = (double *) aligned_malloc(32, bytes);
     if (!B_T) {
-        // Fallback bei fehlendem Speicher
         matmul_omp(A, B, C, n, num_threads);
         return;
     }
 
-    // B transponieren
+    // B transposing
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             B_T[j * n + i] = B[i * n + j];

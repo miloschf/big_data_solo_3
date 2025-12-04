@@ -9,7 +9,6 @@ add_executable(big_data_solo_3
         benchmark.c
 )
 
-# Optimierungen
 target_compile_options(big_data_solo_3 PRIVATE -O3 -march=native -mfma)
 
 
